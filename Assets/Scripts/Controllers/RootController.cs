@@ -1,11 +1,10 @@
 using System.Collections;
 using System.Collections.Generic;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 public class RootController : CommonBehaviour
 {
-    private PortalScene _portalScene;
-
     private bool _traceLogLevelIsEnabled;
 
     private int TargetFrameRate = 60;
@@ -18,7 +17,14 @@ public class RootController : CommonBehaviour
 
     void Start()
     {
-        GeneratePortalScene();
+        if(Game.PortalScene == null)
+        {
+            Game.PortalScene = PortalSceneGenerator.GenerateDefaultPortalScene();
+        }
+
+        Game.PortalScene.CreatePortalMaterials();
+
+        Game.PortalScene.SortRenderTargets();
     }
 
     void Update()
@@ -38,25 +44,20 @@ public class RootController : CommonBehaviour
 
         if (Input.GetKeyUp(KeyCode.G))
         {
-            GeneratePortalScene();
+            if(Game.PortalScene != null)
+            {
+                Game.PortalScene.Destroy();
+                Game.PortalScene = null;
+            }
+
+            Game.PortalScene = PortalSceneGenerator.GenerateDefaultPortalScene();
         }
+
+        Game.PortalScene.SortRenderTargets();
     }
 
     void LateUpdate()
     {
 
-    }
-
-    private void GeneratePortalScene()
-    {
-        if (_portalScene != null)
-        {
-            _portalScene.Destroy();
-            _portalScene = null;
-        }
-
-        var portalsSceneGenerator = new PortalSceneGenerator();
-
-        _portalScene = portalsSceneGenerator.Generate();
     }
 }

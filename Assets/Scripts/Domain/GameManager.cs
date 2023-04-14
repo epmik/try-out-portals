@@ -20,6 +20,8 @@ public class GameManager
 
     public bool LogLateUpdateCalls = false;
 
+    public PortalScene PortalScene { get; set; }
+
     // Explicit static constructor to tell C# compiler
     // not to mark type as beforefieldinit
     static GameManager()
@@ -37,10 +39,6 @@ public class GameManager
             return _instance;
         }
     }
-
-
-
-
 
     public GameObject RootGameObject()
     {
@@ -181,6 +179,11 @@ public class GameManager
                 }
             }
         }
+    }
+
+    public IEnumerable<GameObject> GameObjectsByName(GameObject parentGameObject, string name, bool recursive = false)
+    {
+        return GameObjects(parentGameObject, recursive).Where(o => o.name == name);
     }
 
     public IEnumerable<TComponent> Components<TComponent>(GameObject parentGameObject, bool recursive = false) where TComponent : class

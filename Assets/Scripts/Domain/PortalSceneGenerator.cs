@@ -70,6 +70,11 @@ public class PortalSceneGenerator
         Game = GameManager.Instance;
     }
 
+    public static PortalScene GenerateDefaultPortalScene()
+    {
+        return new PortalSceneGenerator().Generate();
+    }
+
     public PortalScene Generate()
     {
         SetupVariables();
@@ -116,7 +121,7 @@ public class PortalSceneGenerator
 
         _portalScene.AddNode(node1);
 
-        node1.name = "Node 2";
+        node1.name = "Node 1";
         node1.transform.SetParent(root.transform, false);
 
         AssignRandomMaterialToFloorAndWalls(node1);
@@ -226,18 +231,26 @@ public class PortalSceneGenerator
         // this will become the collision detection plane
         var toCollisionQuad = GeneratePortalCollider(toPlaceholder, settings.ToLocation, !settings.FromExteriorToInterior);
 
-        ConnectPortals(fromCollisionQuad, toCollisionQuad);
+        ConnectCollisions(fromCollisionQuad, toCollisionQuad);
 
-        GeneratePortalCamera(fromRenderTarget, toRenderTarget);
+        ConnectRenderTargets(fromRenderTarget, toRenderTarget);
 
+        GeneratePortalCameras(fromRenderTarget, toRenderTarget);
     }
 
-    private void GeneratePortalCamera(GameObject fromRenderTarget, GameObject toRenderTarget)
+    private void GeneratePortalCameras(GameObject fromRenderTarget, GameObject toRenderTarget)
     {
         var root = Game.GameObjectByName("Root");
 
         var playerCamera = Game.PlayerCamera();
 
+        GeneratePortalCamera(fromRenderTarget, toRenderTarget, root, playerCamera);
+
+        GeneratePortalCamera(toRenderTarget, fromRenderTarget, root, playerCamera);
+    }
+
+    private void GeneratePortalCamera(GameObject fromRenderTarget, GameObject toRenderTarget, GameObject parent, Camera playerCamera)
+    {
         var portalCameraGameObject = new GameObject();
 
         _portalScene.AddCamera(portalCameraGameObject);
@@ -250,15 +263,12 @@ public class PortalSceneGenerator
 
         portalCamera.depth = playerCamera.depth - 1;
 
-        portalCameraGameObject.transform.parent = root.transform;
+        portalCameraGameObject.transform.parent = parent.transform;
 
         var portalCameraController = portalCameraGameObject.AddComponent<PortalCameraControllerScene6>();
 
         portalCameraController.RenderSource = fromRenderTarget;
         portalCameraController.RenderTarget = toRenderTarget;
-
-
-
     }
 
     private string NodeAndLocationName(GameObject gameObject)
@@ -278,7 +288,7 @@ public class PortalSceneGenerator
         return name;
     }
 
-    private void ConnectPortals(GameObject fromCollision, GameObject toCollision)
+    private void ConnectCollisions(GameObject fromCollision, GameObject toCollision)
     {
         // add a custom collidor and set the ConnectedPortal property
         var fromPortalCollider = fromCollision.AddComponent<PortalColliderScene6>();
@@ -290,6 +300,20 @@ public class PortalSceneGenerator
 
         _log.Trace($"connected quad ({fromPortalCollider.name}) to  {toPortalCollider.ConnectedPortal.name}");
         _log.Trace($"connected quad ({toPortalCollider.name}) to  {fromPortalCollider.ConnectedPortal.name}");
+    }
+
+    private void ConnectRenderTargets(GameObject fromRenderTarget, GameObject toRenderTarget)
+    {
+        // add a custom collidor and set the ConnectedPortal property
+        var fromPortalRenderTarget = fromRenderTarget.AddComponent<PortalRenderTargetScene6>();
+        // add a custom collidor and set the ConnectedPortal property
+        var toPortalRenderTarget = toRenderTarget.AddComponent<PortalRenderTargetScene6>();
+
+        fromPortalRenderTarget.ConnectedPortal = toRenderTarget;
+        toPortalRenderTarget.ConnectedPortal = fromRenderTarget;
+
+        _log.Trace($"connected render target ({fromPortalRenderTarget.name}) to  {toPortalRenderTarget.ConnectedPortal.name}");
+        _log.Trace($"connected render target ({toPortalRenderTarget.name}) to  {fromPortalRenderTarget.ConnectedPortal.name}");
     }
 
     private GameObject GeneratePortalRenderTarget(
