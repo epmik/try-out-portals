@@ -35,12 +35,12 @@ public class PortalMaterialController : MonoBehaviour
 
         if (material == null)
         {
-            material = new Material(Resources.Load<Shader>("Portal Shader"));
+            material = new Material(Resources.Load<Shader>("Portal Render Target Shader"));
         }
 
-        if (material.shader.name != "Private/Portal Shader")
+        if (material.shader.name != "Private/Portal Render Target Shader")
         {
-            material.shader = Resources.Load<Shader>("Private/Portal Shader");
+            material.shader = Resources.Load<Shader>("Private/Portal Render Target Shader");
         }
 
         renderer.material = material;

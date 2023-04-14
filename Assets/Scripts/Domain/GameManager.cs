@@ -165,7 +165,7 @@ public class GameManager
         return gameObject.GetComponent<TComponent>();
     }
 
-    public IEnumerable<GameObject> GameObjects(GameObject parentGameObject, bool recursive = false)
+    public IEnumerable<GameObject> GameObjects(GameObject parentGameObject, bool recursive)
     {
         foreach(Transform transform in parentGameObject.transform)
         {
@@ -181,12 +181,12 @@ public class GameManager
         }
     }
 
-    public IEnumerable<GameObject> GameObjectsByName(GameObject parentGameObject, string name, bool recursive = false)
+    public IEnumerable<GameObject> GameObjectsByName(GameObject parentGameObject, string name, bool recursive)
     {
         return GameObjects(parentGameObject, recursive).Where(o => o.name == name);
     }
 
-    public IEnumerable<TComponent> Components<TComponent>(GameObject parentGameObject, bool recursive = false) where TComponent : class
+    public IEnumerable<TComponent> Components<TComponent>(GameObject parentGameObject, bool recursive) where TComponent : class
     {
         foreach (var gameObject in GameObjects(parentGameObject, recursive))
         {

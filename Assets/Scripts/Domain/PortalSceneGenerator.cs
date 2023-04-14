@@ -246,7 +246,7 @@ public class PortalSceneGenerator
 
         GeneratePortalCamera(fromRenderTarget, toRenderTarget, root, playerCamera);
 
-        GeneratePortalCamera(toRenderTarget, fromRenderTarget, root, playerCamera);
+        //GeneratePortalCamera(toRenderTarget, fromRenderTarget, root, playerCamera);
     }
 
     private void GeneratePortalCamera(GameObject fromRenderTarget, GameObject toRenderTarget, GameObject parent, Camera playerCamera)
@@ -430,11 +430,11 @@ public class PortalSceneGenerator
             case Location.North:
                 return new Vector3(0, fromExteriorToInterior ? 0 : 180, 0);
             case Location.East:
-                return new Vector3(0, fromExteriorToInterior ? 90 : 270, 0);
+                return new Vector3(0, fromExteriorToInterior ? 270 : 90, 0);
             case Location.South:
                 return new Vector3(0, fromExteriorToInterior ? 180 : 0, 0);
             default:
-                return new Vector3(0, fromExteriorToInterior ? 270 : 90, 0);
+                return new Vector3(0, fromExteriorToInterior ? 90 : 270, 0);
         }
     }
 
@@ -477,7 +477,7 @@ public class PortalSceneGenerator
 
         material.name = material.color.ToString() + " Node Material";
 
-        foreach (var r in Game.Components<Renderer>(exterior))
+        foreach (var r in Game.Components<Renderer>(exterior, false))
         {
             r.material = material;
         }

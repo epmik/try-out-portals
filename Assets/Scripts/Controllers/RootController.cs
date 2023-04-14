@@ -53,7 +53,10 @@ public class RootController : CommonBehaviour
             Game.PortalScene = PortalSceneGenerator.GenerateDefaultPortalScene();
         }
 
-        Game.PortalScene.SortRenderTargets();
+        if(Game.PortalScene != null)
+        {
+            Game.PortalScene.SortRenderTargets();
+        }
     }
 
     void LateUpdate()
