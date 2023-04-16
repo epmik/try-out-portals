@@ -22,8 +22,6 @@ public class RootController : CommonBehaviour
             Game.PortalScene = PortalSceneGenerator.GenerateDefaultPortalScene();
         }
 
-        Game.PortalScene.CreatePortalMaterials();
-
         Game.PortalScene.SortRenderTargets();
     }
 
@@ -52,15 +50,13 @@ public class RootController : CommonBehaviour
 
             Game.PortalScene = PortalSceneGenerator.GenerateDefaultPortalScene();
         }
-
-        if(Game.PortalScene != null)
-        {
-            Game.PortalScene.SortRenderTargets();
-        }
     }
 
     void LateUpdate()
     {
-
+        if (Game.PortalScene != null)
+        {
+            Game.PortalScene.SortRenderTargets();
+        }
     }
 }

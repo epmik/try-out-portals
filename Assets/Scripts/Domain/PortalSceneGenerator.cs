@@ -34,19 +34,19 @@ public class PortalSceneGenerator
         private set;
     }
 
-    private class GenerateConnectedPortalsSettings
+    private class GenerateCollidersAndRenderTargetsSettings
     {
-        public GameObject FromPortal;
+        public PortalSceneNode FromNode;
         public Location FromLocation;
 
-        public GameObject ToPortal;
+        public PortalSceneNode ToNode;
         public Location ToLocation;
 
         public bool FromExteriorToInterior = true;
 
-        //public bool CreateColliders = true;
+        public bool CreateColliders = true;
 
-        //public bool CreatePortalCameras = true;
+        public bool CreateRenderTargets = true;
     }
 
     private LogManager _log = LogManager.Instance;
@@ -102,12 +102,15 @@ public class PortalSceneGenerator
         
         var nodePosition = new Vector3(0, 0, 0);
 
-        var node0 = UnityEngine.Object.Instantiate(nodePrefab, nodePosition, Quaternion.identity);
+        var node0 = new PortalSceneNode 
+        { 
+            GameObject = UnityEngine.Object.Instantiate(nodePrefab, nodePosition, Quaternion.identity),
+        };
 
         _portalScene.AddNode(node0);
 
-        node0.name = "Node 0";
-        node0.transform.SetParent(root.transform, false);
+        node0.GameObject.name = "Node 0";
+        node0.GameObject.transform.SetParent(root.transform, false);
 
         AssignRandomMaterialToFloorAndWalls(node0);
 
@@ -117,12 +120,15 @@ public class PortalSceneGenerator
         
         nodePosition += new Vector3(30, 0, 0);
 
-        var node1 = UnityEngine.Object.Instantiate(nodePrefab, nodePosition, Quaternion.identity);
+        var node1 = new PortalSceneNode
+        {
+            GameObject = UnityEngine.Object.Instantiate(nodePrefab, nodePosition, Quaternion.identity),
+        };
 
         _portalScene.AddNode(node1);
 
-        node1.name = "Node 1";
-        node1.transform.SetParent(root.transform, false);
+        node1.GameObject.name = "Node 1";
+        node1.GameObject.transform.SetParent(root.transform, false);
 
         AssignRandomMaterialToFloorAndWalls(node1);
 
@@ -140,14 +146,16 @@ public class PortalSceneGenerator
         //AssignRandomMaterialToFloorAndWalls(node2);
 
 
-        GenerateConnectedPortals(
-             new GenerateConnectedPortalsSettings
+        GenerateCollidersAndRenderTargets(
+             new GenerateCollidersAndRenderTargetsSettings
              {
-                 FromPortal = node0,
+                 FromNode = node0,
                  FromLocation = Location.West,
-                 ToPortal = node1,
+                 ToNode = node1,
                  ToLocation = Location.South,
                  FromExteriorToInterior = true,
+                 CreateColliders = true,
+                 CreateRenderTargets = true,
              });
 
         //GenerateConnectedPortals(
@@ -182,139 +190,188 @@ public class PortalSceneGenerator
 
         MovePlayerToNode(node0);
 
+        _portalScene.GenerateRenderTargetMaterials();
+
         return _portalScene;
     }
 
-    private void GenerateConnectedPortals(GenerateConnectedPortalsSettings settings)
+    private void HideBottomBeam(PortalSceneNode node, Location location)
     {
-        var fromName = settings.FromLocation.ToString();
-        var toName = settings.ToLocation.ToString();
-
-        // find the placeholder
-        var fromPlaceholder = Game.GameObjectByName(settings.FromPortal, fromName);
-
         // find the bottom beam
-        var fromBottom = Game.GameObjectByName(settings.FromPortal, fromName + " Bottom");
+        var fromBottom = Game.GameObjectByName(node.GameObject, location + " Bottom");
 
         // set the bottom beam to inactive: no rendering or collision detection
         fromBottom.SetActive(false);
-
-
-        // create a plane and add it to the west portal
-        // this will become the rendering texture target
-
-        var fromRenderTarget = GeneratePortalRenderTarget(fromPlaceholder, settings.FromLocation, settings.FromExteriorToInterior);
-
-        // create a plane and add it to the west portal
-        // this will become the collision detection plane
-
-        var fromCollisionQuad = GeneratePortalCollider(fromPlaceholder, settings.FromLocation, settings.FromExteriorToInterior);
-
-
-
-
-        // find the placeholder
-        var toPlaceholder = Game.GameObjectByName(settings.ToPortal, toName);
-
-        // find the bottom beam
-        var toBottom = Game.GameObjectByName(settings.ToPortal, toName + " Bottom");
-
-        // set the bottom beam to inactive: no rendering or collision detection
-        toBottom.SetActive(false);
-
-
-        // create a plane and add it to the west portal
-        // this will become the rendering texture target
-        var toRenderTarget = GeneratePortalRenderTarget(toPlaceholder, settings.ToLocation, !settings.FromExteriorToInterior);
-
-        // create a plane and add it to the west portal
-        // this will become the collision detection plane
-        var toCollisionQuad = GeneratePortalCollider(toPlaceholder, settings.ToLocation, !settings.FromExteriorToInterior);
-
-        ConnectCollisions(fromCollisionQuad, toCollisionQuad);
-
-        ConnectRenderTargets(fromRenderTarget, toRenderTarget);
-
-        GeneratePortalCameras(fromRenderTarget, toRenderTarget);
     }
 
-    private void GeneratePortalCameras(GameObject fromRenderTarget, GameObject toRenderTarget)
+    //private GameObject PlaceholderGameObject(PortalSceneNode node, Location location)
+    //{
+    //    return Game.GameObjectByName(node.GameObject, location.ToString());
+    //}
+
+    private void GenerateCollidersAndRenderTargets(GenerateCollidersAndRenderTargetsSettings settings)
+    {
+        var fromPlaceHolder = Game.GameObjectByName(settings.FromNode.GameObject, settings.FromLocation.ToString());
+
+        var toPlaceHolder = Game.GameObjectByName(settings.ToNode.GameObject, settings.ToLocation.ToString());
+
+        var fromFromRenderTarget = new PortalSceneRenderTarget 
+        {
+            Node = settings.FromNode,
+            Location = settings.FromLocation,
+            GameObject = GeneratePortalRenderTarget(fromPlaceHolder, settings.FromLocation, settings.FromExteriorToInterior)
+        };
+
+        var fromToRenderSource = new PortalSceneRenderSource 
+        { 
+            Node = settings.ToNode,
+            Location = settings.ToLocation,
+            GameObject = GeneratePortalRenderSource(toPlaceHolder, settings.ToLocation, !settings.FromExteriorToInterior)
+        };
+
+        settings.FromNode.AddRenderTarget(fromFromRenderTarget);
+
+        var toFromRenderTarget = new PortalSceneRenderTarget
+        {
+            Node = settings.ToNode,
+            Location = settings.ToLocation,
+            GameObject = GeneratePortalRenderTarget(toPlaceHolder, settings.ToLocation, !settings.FromExteriorToInterior)
+        };
+
+        var toToRenderSource = new PortalSceneRenderSource
+        {
+            Node = settings.FromNode,
+            Location = settings.FromLocation,
+            GameObject = GeneratePortalRenderSource(fromPlaceHolder, settings.FromLocation, settings.FromExteriorToInterior)
+        };
+
+        settings.ToNode.AddRenderTarget(toFromRenderTarget);
+
+        GeneratePortalCameras(fromFromRenderTarget, fromToRenderSource);
+
+        GeneratePortalCameras(toFromRenderTarget, toToRenderSource);
+
+        if (settings.CreateColliders)
+        {
+            HideBottomBeam(settings.FromNode, settings.FromLocation);
+
+            HideBottomBeam(settings.ToNode, settings.ToLocation);
+
+            var fromCollider = new PortalSceneCollider
+            {
+                GameObject = GeneratePortalCollider(fromPlaceHolder, settings.FromLocation, settings.FromExteriorToInterior)
+            };
+
+            var toCollider = new PortalSceneCollider
+            {
+                GameObject = GeneratePortalCollider(toPlaceHolder, settings.ToLocation, !settings.FromExteriorToInterior)
+            };
+
+            var fromColliderComponent = fromCollider.GameObject.AddComponent<PortalColliderScene6>();
+            fromColliderComponent.ConnectedPortal = toCollider.GameObject;
+
+            var toColliderComponent = toCollider.GameObject.AddComponent<PortalColliderScene6>();
+            toColliderComponent.ConnectedPortal = fromCollider.GameObject;
+
+
+            fromCollider.ConnectedCollider = toCollider;
+            fromCollider.Node = settings.FromNode;
+            fromCollider.Location = settings.FromLocation;
+
+            toCollider.ConnectedCollider = fromCollider;
+            toCollider.Node = settings.ToNode;
+            toCollider.Location = settings.ToLocation;
+
+            settings.FromNode.AddCollider(fromCollider);
+        }
+    }
+
+    private void GeneratePortalCameras(
+        PortalSceneRenderTarget renderTarget,
+        PortalSceneRenderSource renderSource)
     {
         var root = Game.GameObjectByName("Root");
 
         var playerCamera = Game.PlayerCamera();
 
-        GeneratePortalCamera(fromRenderTarget, toRenderTarget, root, playerCamera);
-
-        //GeneratePortalCamera(toRenderTarget, fromRenderTarget, root, playerCamera);
+        GeneratePortalCamera(renderTarget, renderSource, root, playerCamera);
     }
 
-    private void GeneratePortalCamera(GameObject fromRenderTarget, GameObject toRenderTarget, GameObject parent, Camera playerCamera)
+    private void GeneratePortalCamera(
+        PortalSceneRenderTarget renderTarget,
+        PortalSceneRenderSource renderSource, 
+        GameObject parent, 
+        Camera playerCamera)
     {
-        var portalCameraGameObject = new GameObject();
-
-        _portalScene.AddCamera(portalCameraGameObject);
-
-        var portalCamera = portalCameraGameObject.AddComponent<Camera>();
-
-        portalCamera.CopyFrom(playerCamera);
-
-        portalCamera.name = $"Camera{NodeAndLocationName(toRenderTarget)}";
-
-        portalCamera.depth = playerCamera.depth - 1;
-
-        portalCameraGameObject.transform.parent = parent.transform;
-
-        var portalCameraController = portalCameraGameObject.AddComponent<PortalCameraControllerScene6>();
-
-        portalCameraController.RenderSource = fromRenderTarget;
-        portalCameraController.RenderTarget = toRenderTarget;
-    }
-
-    private string NodeAndLocationName(GameObject gameObject)
-    {
-        var name = string.Empty;
-
-        if(gameObject.tag == "Node" || gameObject.tag == "Portal")
+        var portalCamera = new PortalSceneCamera
         {
-            name = " / " + gameObject.name;
-        }
+            GameObject = new GameObject($"Camera {renderSource} / {renderTarget}"),
+            RenderTarget = renderTarget,
+            RenderSource = renderSource,
+        };
 
-        if(gameObject.transform.parent != null)
-        {
-            return $"{NodeAndLocationName(gameObject.transform.parent.gameObject)}{name}";
-        }
+        renderTarget.Camera = portalCamera;
+        renderSource.Camera = portalCamera;
 
-        return name;
+        //toPortal.AddCamera(portalCamera);
+
+
+
+        // create a plane and add it to the portal
+        // this will become the rendering texture target
+
+        //portalCamera.RenderTarget = new PortalSceneRenderTarget
+        //{
+        //    Portal = fromPortal,
+        //    GameObject = GeneratePortalRenderTarget(fromPortal.GameObject, settings.FromLocation, settings.FromExteriorToInterior)
+        //};
+
+        //// create a plane and add it to the west portal
+        //// this will become the rendering texture target
+        //portalCamera.RenderSource = new PortalSceneRenderSource
+        //{
+        //    Portal = toPortal,
+        //    GameObject = GeneratePortalRenderTarget(toPortal.GameObject, settings.ToLocation, !settings.FromExteriorToInterior),
+        //};
+
+        portalCamera.RenderTarget.GameObject.AddComponent<PortalRenderTargetScene6>();
+
+        var cameraComponent = portalCamera.GameObject.AddComponent<Camera>();
+
+        cameraComponent.CopyFrom(playerCamera);
+
+        portalCamera.GameObject.transform.parent = parent.transform;
+
+        //var cameraControllerComponent = portalCamera.GameObject.AddComponent<PortalCameraControllerScene6>();
+
+        //cameraControllerComponent.RenderSource = portalCamera.RenderTarget.GameObject;
+        //cameraControllerComponent.RenderTarget = portalCamera.RenderSource.GameObject;
     }
 
-    private void ConnectCollisions(GameObject fromCollision, GameObject toCollision)
-    {
-        // add a custom collidor and set the ConnectedPortal property
-        var fromPortalCollider = fromCollision.AddComponent<PortalColliderScene6>();
-        // add a custom collidor and set the ConnectedPortal property
-        var toPortalCollider = toCollision.AddComponent<PortalColliderScene6>();
+    //private string NodeNameAndLocation(PortalScenePortal portal)
+    //{
+    //    return portal.Node.GameObject.name + " / " + portal.Location;
+    //}
 
-        fromPortalCollider.ConnectedPortal = toCollision;
-        toPortalCollider.ConnectedPortal = fromCollision;
+    //private void ConnectPortals(PortalScenePortal fromPortal, PortalScenePortal toPortal)
+    //{
+    //    fromPortal.ConnectedPortal = toPortal;
+    //    toPortal.ConnectedPortal = fromPortal;
 
-        _log.Trace($"connected quad ({fromPortalCollider.name}) to  {toPortalCollider.ConnectedPortal.name}");
-        _log.Trace($"connected quad ({toPortalCollider.name}) to  {fromPortalCollider.ConnectedPortal.name}");
-    }
+    //    _log.Trace($"connected quad ({fromPortal.GameObject.name}) to  {toPortal.GameObject.name}");
+    //    _log.Trace($"connected quad ({toPortal.GameObject.name}) to  {fromPortal.GameObject.name}");
+    //}
 
-    private void ConnectRenderTargets(GameObject fromRenderTarget, GameObject toRenderTarget)
-    {
-        // add a custom collidor and set the ConnectedPortal property
-        var fromPortalRenderTarget = fromRenderTarget.AddComponent<PortalRenderTargetScene6>();
-        // add a custom collidor and set the ConnectedPortal property
-        var toPortalRenderTarget = toRenderTarget.AddComponent<PortalRenderTargetScene6>();
+    //private void GenerateColliderComponents(PortalScenePortal fromPortal, PortalScenePortal toPortal)
+    //{
+    //}
 
-        fromPortalRenderTarget.ConnectedPortal = toRenderTarget;
-        toPortalRenderTarget.ConnectedPortal = fromRenderTarget;
+    //private void GenerateRenderTargetComponents(PortalScenePortal fromPortal, PortalScenePortal toPortal)
+    //{
+    //    fromPortal.RenderTarget.GameObject.AddComponent<PortalRenderTargetScene6>();
 
-        _log.Trace($"connected render target ({fromPortalRenderTarget.name}) to  {toPortalRenderTarget.ConnectedPortal.name}");
-        _log.Trace($"connected render target ({toPortalRenderTarget.name}) to  {fromPortalRenderTarget.ConnectedPortal.name}");
-    }
+    //    toPortal.RenderTarget.GameObject.AddComponent<PortalRenderTargetScene6>();
+    //}
 
     private GameObject GeneratePortalRenderTarget(
         GameObject locationPlaceholder,
@@ -333,13 +390,41 @@ public class PortalSceneGenerator
         renderTargetQuad.transform.SetParent(locationPlaceholder.transform, false);
 
         // disable the default collider
-        renderTargetQuad.GetComponent<MeshCollider>().enabled = false;
+        //renderTargetQuad.GetComponent<MeshCollider>().enabled = false;
 
         // disabled for now
         renderTargetQuad.GetComponent<Renderer>().enabled = false;
 
         _log.Trace($"created render target quad ({renderTargetQuad.name}) at world {renderTargetQuad.transform.position} {renderTargetQuad.transform.eulerAngles}");
         _log.Trace($"created render target quad ({renderTargetQuad.name}) at local {renderTargetQuad.transform.localPosition} {renderTargetQuad.transform.localEulerAngles}");
+
+        return renderTargetQuad;
+    }
+
+    private GameObject GeneratePortalRenderSource(
+        GameObject locationPlaceholder,
+        Location location,
+        bool fromExteriorToInterior)
+    {
+        // create a plane and add it to the locationPlaceholder
+        // this will become the rendering texture target
+
+        var renderTargetQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        renderTargetQuad.name = "Render Source";
+        renderTargetQuad.transform.localPosition = RenderTargetPositionFor(location, fromExteriorToInterior);
+        renderTargetQuad.transform.localEulerAngles = RenderTargetEulerAnglesFor(location, fromExteriorToInterior);
+        renderTargetQuad.transform.localScale = ScaleFor(location, fromExteriorToInterior);
+
+        renderTargetQuad.transform.SetParent(locationPlaceholder.transform, false);
+
+        // disable the default collider
+        //renderTargetQuad.GetComponent<MeshCollider>().enabled = false;
+
+        // disabled for now
+        renderTargetQuad.GetComponent<Renderer>().enabled = false;
+
+        _log.Trace($"created render source quad ({renderTargetQuad.name}) at world {renderTargetQuad.transform.position} {renderTargetQuad.transform.eulerAngles}");
+        _log.Trace($"created render source quad ({renderTargetQuad.name}) at local {renderTargetQuad.transform.localPosition} {renderTargetQuad.transform.localEulerAngles}");
 
         return renderTargetQuad;
     }
@@ -352,29 +437,29 @@ public class PortalSceneGenerator
         // create a plane and add it to the locationPlaceholder
         // this will become the collision detection plane
 
-        var collisionQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        collisionQuad.name = "Collider";
-        collisionQuad.transform.localPosition = CollisionPositionFor(location, fromExteriorToInterior);
-        collisionQuad.transform.localEulerAngles = CollisionEulerAnglesFor(location, fromExteriorToInterior);
-        collisionQuad.transform.localScale = ScaleFor(location, fromExteriorToInterior);
+        var colliderQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        colliderQuad.name = "Collider";
+        colliderQuad.transform.localPosition = CollisionPositionFor(location, fromExteriorToInterior);
+        colliderQuad.transform.localEulerAngles = CollisionEulerAnglesFor(location, fromExteriorToInterior);
+        colliderQuad.transform.localScale = ScaleFor(location, fromExteriorToInterior);
 
-        collisionQuad.transform.SetParent(locationPlaceholder.transform, false);
+        colliderQuad.transform.SetParent(locationPlaceholder.transform, false);
         // disable the default collider
-        collisionQuad.GetComponent<MeshCollider>().enabled = false;
+        colliderQuad.GetComponent<MeshCollider>().enabled = false;
 
-        collisionQuad.GetComponent<Renderer>().material = _portalCollisionMaterial;
+        colliderQuad.GetComponent<Renderer>().material = _portalCollisionMaterial;
 
-        _log.Trace($"created collider quad ({collisionQuad.name}) at world {collisionQuad.transform.position} {collisionQuad.transform.eulerAngles}");
-        _log.Trace($"created collider quad ({collisionQuad.name}) at local {collisionQuad.transform.localPosition} {collisionQuad.transform.localEulerAngles}");
+        _log.Trace($"created collider quad ({colliderQuad.name}) at world {colliderQuad.transform.position} {colliderQuad.transform.eulerAngles}");
+        _log.Trace($"created collider quad ({colliderQuad.name}) at local {colliderQuad.transform.localPosition} {colliderQuad.transform.localEulerAngles}");
 
-        return collisionQuad;
+        return colliderQuad;
     }
 
-    private void MovePlayerToNode(GameObject node)
+    private void MovePlayerToNode(PortalSceneNode node)
     {
         var player = Game.PlayerGameObject();
 
-        player.transform.position = node.transform.position + new Vector3(-3, 0, -8);
+        player.transform.position = node.GameObject.transform.position + new Vector3(-3, 0, -8);
 
         Physics.SyncTransforms();
     }
@@ -428,11 +513,11 @@ public class PortalSceneGenerator
         switch (location)
         {
             case Location.North:
-                return new Vector3(0, fromExteriorToInterior ? 0 : 180, 0);
+                return new Vector3(0, fromExteriorToInterior ? 180 : 0, 0);
             case Location.East:
                 return new Vector3(0, fromExteriorToInterior ? 270 : 90, 0);
             case Location.South:
-                return new Vector3(0, fromExteriorToInterior ? 180 : 0, 0);
+                return new Vector3(0, fromExteriorToInterior ? 0 : 180, 0);
             default:
                 return new Vector3(0, fromExteriorToInterior ? 90 : 270, 0);
         }
@@ -464,9 +549,9 @@ public class PortalSceneGenerator
         _portalCollisionMaterial = Resources.Load<Material>(Settings.PortalCollisionMaterialName);
     }
 
-    private void AssignRandomMaterialToFloorAndWalls(GameObject node)
+    private void AssignRandomMaterialToFloorAndWalls(PortalSceneNode node)
     {
-        var exterior = Game.GameObjectByName(node, "Exterior");
+        var exterior = Game.GameObjectByName(node.GameObject, "Exterior");
 
         var whiteMaterial = Resources.Load<Material>("White Material");
 
